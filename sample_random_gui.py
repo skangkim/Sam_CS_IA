@@ -1,76 +1,107 @@
 import PySimpleGUI as sg
 
-LENGTH_MEMORY = []
-SEEN_INPUT = set()
-OK_COUNTER = 0
+# Global variables.
+STRING_LIST = []  # A list of input strings.
+TAB1_ROW1_INPUT_KEY = "tab1-string"
+TAB1_ROW2_DISPLAY_KEY = "tab1-average-length"
+TAB1_ROW3_DISPLAY_KEY = "tab1-string-from-tab2"
+TAB2_ROW1_INPUT_KEY = "tab2-string"
 
-AVG_LENGTH_TEXT = "Average DISTINCT input length so far from input text above is %d"
-VIEW_IN_TAB1_TEXT = "This is content from tab2 %s"
-OK_COUNTER_TEXT = "OK clicked %d times"
+# Prefix of the text in Tab1.
+TAB1_ROW2_PREFIX = "Average length of strings so far: "
+TAB1_ROW3_PREFIX = "Content from Tab 2: "
 
 
-def handle_ok(window: sg.Window, values: dict) -> None:
+def update_tab1(window: sg.Window, values: dict) -> None:
     """
-
     :param window: pysimplegui window object
     :param values: dict of input key and value of the pysimplegui input value
-    :return:
+    :return: None.
+
+    Updates Tab1's texts in:
+        - 2nd row (average length)
+        - 3rd row (string from tab2)
     """
-    global OK_COUNTER  # need to define global variable if modified
 
-    OK_COUNTER += 1
-    window.Element("ok-click-counter").update(value=OK_COUNTER_TEXT % OK_COUNTER)
+    # ----- Update 2nd row --------------
+    input_string = values[TAB1_ROW1_INPUT_KEY]  # Get string from Tab 1
+    # Only calculate if...
+    # 1. the string is not empty (if it's empty, user did not provide one) AND
+    # 2. the string has not been seen before.
+    if input_string != "" and input_string not in STRING_LIST:
+        STRING_LIST.append(input_string)
 
-    if "view-in-tab1" in values:
-        window.Element("updatable-from-tab2").update(value=VIEW_IN_TAB1_TEXT % values["view-in-tab1"])
+        # Let's calculate average length of the strings we've seen so far.
+        length_sum = 0 # Compute the total length of all the strings.
+        for s in STRING_LIST:
+            length_sum += len(s)
+        avg_length = length_sum / len(STRING_LIST)  # avg length = total length / number of strings
 
-    if "count-length" in values and (curr := values["count-length"]) not in SEEN_INPUT and curr != '':
-        print(curr)
-        SEEN_INPUT.add(curr)
-        LENGTH_MEMORY.append(len(curr))
-        print(LENGTH_MEMORY)
-        window.Element("average-length").update(value=AVG_LENGTH_TEXT % (sum(LENGTH_MEMORY) / len(LENGTH_MEMORY)))
+        # Update the displayed text
+        updated_row2_text = TAB1_ROW2_PREFIX + str(avg_length)
+        window.Element(TAB1_ROW2_DISPLAY_KEY).update(value=updated_row2_text)
+
+    # ----- Update 3rd row --------------
+    # Get the value from top row in Tab 2.
+    # Update the bottom row in Tab 1 with the value.
+    updated_row3_text = TAB1_ROW3_PREFIX + values[TAB2_ROW1_INPUT_KEY]
+    window.Element(TAB1_ROW3_DISPLAY_KEY).update(value=updated_row3_text)
 
 
-def main():
-    sg.theme("LightBlue")  # Add a touch of color
-    # All the stuff inside your window.
+def create_layout() -> list:
+    """
+    :return: list.
 
+    Create a layout for PySimpleGUI Window
+    """
+    # Set up layout for Tab 1
     tab1_layout = [
-        [sg.Text('Some text on Row 1')],
-        [sg.Text("We keep track of rounded average length of DISTINCT input here"), sg.InputText(key="count-length")],
-        [sg.Text(AVG_LENGTH_TEXT % 0, key="average-length")],
-        [sg.Text('This is content from tab2', key="updatable-from-tab2")],
+        [sg.Text(text="Input String: "), sg.InputText(key=TAB1_ROW1_INPUT_KEY)],  # Row 1
+        [sg.Text(key=TAB1_ROW2_DISPLAY_KEY, text=TAB1_ROW2_PREFIX)],  # Row 2
+        [sg.Text(key=TAB1_ROW3_DISPLAY_KEY, text=TAB1_ROW3_PREFIX)],  # Row 3
     ]
-
-    tab2_layout = [[sg.Text("Enter Here for view in tab1"), sg.InputText(key="view-in-tab1")]]
-    tab3_layout = [[sg.Text("OK clicked 0 times", key="ok-click-counter")]]
-
+    # Set up layout for Tab 2
+    tab2_layout = [[sg.Text(text="Enter here to view in Tab 1: "), sg.InputText(key=TAB2_ROW1_INPUT_KEY)]]  # Row 1
+    # Set up layout of the program
     layout = [
+        # Set up tabs
         [
             sg.TabGroup(
                 [[
                     sg.Tab("Tab1", tab1_layout),
-                    sg.Tab("Tab2", tab2_layout),
-                    sg.Tab("Tab3", tab3_layout)]]
+                    sg.Tab("Tab2", tab2_layout)]]
             )
         ],
+        # Set up common buttons for all tabs
         [sg.Button('Ok'), sg.Button('Cancel')]
     ]
-    ok_counter = 0
-    # Create the Window
-    window = sg.Window('Score Input Interface', layout)
+
+    return layout
+
+
+def run_program(window_layout: list) -> None:
+    """
+    :param window_layout: layout for PySmipleGui window.
+    :return: None.
+
+    Create a window and run GUI.
+    """
+    window = sg.Window('Score Input Interface', window_layout)  # Create a window
+
     # Event Loop to process "events" and get the "values" of the inputs
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED or event == 'Cancel':  # if user closes window or clicks cancel
             break
 
-        if event == "Ok":
-            handle_ok(window, values)
+        if event == "Ok":  # When OK button is clicked:
+            update_tab1(window, values)
 
     window.close()
 
 
-if __name__ == "__main__":
-    main()
+# ---------- Setup --------
+sg.theme("LightBlue")  # Add a touch of color
+layout = create_layout()  # Create a layout
+# ---------- Run --------
+run_program(layout)
